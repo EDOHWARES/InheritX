@@ -48,7 +48,7 @@ There is **no global, programmable, fiat‑native inheritance infrastructure**.
 ### 1. Inheritance Plan Creation
 
 * Create an inheritance plan on‑chain
-* Select asset types (USDC, EUR, USD,  etc.)
+* Select asset types (USDC on Stellar)
 * Define beneficiaries and allocation percentages
 * Assign optional guardians
 
@@ -127,6 +127,31 @@ Immutable on‑chain records of:
 * Anchor integration services
 * Compliance metadata & document storage
 
+---
+
+## 🤝 Contributing
+
+Contributions are welcome.
+
+- **Clone the repository**
+```bash 
+git clone https://github.com/Fracverse/InheritX
+```
+
+- **Navigate into the project directory**
+```bash
+cd InheritX
+```
+
+- **Install dependencies**
+```bash 
+npm install
+```
+
+- **Start the development server**
+```bash 
+npm run dev
+```
 ---
 
 ## 🔐 Security Model
