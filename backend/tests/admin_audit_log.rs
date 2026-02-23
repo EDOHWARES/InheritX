@@ -109,7 +109,7 @@ async fn log_inserted_on_plan_create_and_claim() {
     // 1. Approve KYC first (and verify KYC log)
     let admin_token = generate_admin_token(admin_id);
     let kyc_req = json!({ "user_id": user_id });
-    
+
     let kyc_res = ctx
         .app
         .clone()
@@ -124,15 +124,17 @@ async fn log_inserted_on_plan_create_and_claim() {
         )
         .await
         .expect("Request failed");
-    
+
     assert_eq!(kyc_res.status(), StatusCode::OK);
 
     // Verify KYC Approved log
-    let kyc_log: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM action_logs WHERE user_id = $1 AND action = 'kyc_approved'")
-        .bind(admin_id) // admin performed the action
-        .fetch_one(&ctx.pool)
-        .await
-        .expect("Failed to query action logs");
+    let kyc_log: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM action_logs WHERE user_id = $1 AND action = 'kyc_approved'",
+    )
+    .bind(admin_id) // admin performed the action
+    .fetch_one(&ctx.pool)
+    .await
+    .expect("Failed to query action logs");
     assert_eq!(kyc_log, 1, "Expected 1 kyc_approved log");
 
     // 2. Create Plan (and verify plan_created log)
@@ -162,11 +164,13 @@ async fn log_inserted_on_plan_create_and_claim() {
         .expect("Request failed");
 
     assert_eq!(create_res.status(), StatusCode::OK);
-    let plan_id: Uuid = sqlx::query_scalar("SELECT id FROM plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1")
-        .bind(user_id)
-        .fetch_one(&ctx.pool)
-        .await
-        .expect("Failed to get plan");
+    let plan_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM plans WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_one(&ctx.pool)
+    .await
+    .expect("Failed to get plan");
 
     let plan_log: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM action_logs WHERE user_id = $1 AND action = 'plan_created' AND entity_id = $2")
         .bind(user_id)
