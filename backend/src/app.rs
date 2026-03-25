@@ -24,8 +24,8 @@ use crate::service::{
     RevokeEmergencyAccessGrantRequest, RiskOverrideRequest, UnpausePlanRequest,
     UpdateEmergencyContactRequest,
 };
-use crate::yield_service::{DefaultOnChainYieldService, OnChainYieldService};
 use crate::stress_testing::StressTestingEngine;
+use crate::yield_service::{DefaultOnChainYieldService, OnChainYieldService};
 
 pub struct AppState {
     pub db: PgPool,
@@ -753,7 +753,9 @@ async fn simulate_price_crash(
         .stress_testing_engine
         .simulate_price_crash(&req.asset_code, req.drop_percentage)
         .await?;
-    Ok(Json(json!({ "status": "success", "message": "Price crash simulation completed" })))
+    Ok(Json(
+        json!({ "status": "success", "message": "Price crash simulation completed" }),
+    ))
 }
 
 async fn simulate_mass_default(
@@ -761,7 +763,9 @@ async fn simulate_mass_default(
     AuthenticatedAdmin(_admin): AuthenticatedAdmin,
 ) -> Result<Json<Value>, ApiError> {
     state.stress_testing_engine.simulate_mass_default().await?;
-    Ok(Json(json!({ "status": "success", "message": "Mass default simulation completed" })))
+    Ok(Json(
+        json!({ "status": "success", "message": "Mass default simulation completed" }),
+    ))
 }
 
 async fn simulate_liquidity_drain(
@@ -773,5 +777,7 @@ async fn simulate_liquidity_drain(
         .stress_testing_engine
         .simulate_liquidity_drain(&req.asset_code, req.amount)
         .await?;
-    Ok(Json(json!({ "status": "success", "message": "Liquidity drain simulation completed" })))
+    Ok(Json(
+        json!({ "status": "success", "message": "Liquidity drain simulation completed" }),
+    ))
 }

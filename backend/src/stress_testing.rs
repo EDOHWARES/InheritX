@@ -41,7 +41,9 @@ impl StressTestingEngine {
         let crashed_price = current_price.price * drop_factor;
 
         // Use the price feed service to update to the crashed price
-        self.price_feed.update_price(asset_code, crashed_price).await?;
+        self.price_feed
+            .update_price(asset_code, crashed_price)
+            .await?;
 
         // Immediately trigger risk engine check to see effects
         self.risk_engine.check_all_loans().await?;
@@ -56,7 +58,7 @@ impl StressTestingEngine {
         // Strategy: Forcefully lower health factors in the database for a set of plans
         // Or we could just crash the main collateral asset price (usually USDC is 1, but if we drop it...)
         // Let's assume most plans use a specific asset as collateral that's not stable for this test.
-        
+
         // Find plans that are currently healthy and force them to be risky
         let affected = sqlx::query(
             r#"
@@ -67,7 +69,7 @@ impl StressTestingEngine {
                 WHERE is_risky = false OR is_risky IS NULL 
                 LIMIT 50
             ) AND (is_paused IS NULL OR is_paused = false)
-            "#
+            "#,
         )
         .execute(&self.db)
         .await
@@ -75,28 +77,35 @@ impl StressTestingEngine {
 
         info!("Forced mass default for {} plans", affected.rows_affected());
 
-        // We don't need to run check_all_loans here since we manually updated the state, 
+        // We don't need to run check_all_loans here since we manually updated the state,
         // but we might want to trigger notifications if the check_all_loans does that.
         // Actually, if we want notifications, we should rely on the risk engine.
-        
+
         Ok(())
     }
 
     /// Simulates a liquidity drain by reducing the pool's reported balance or increasing apparent utilization
-    pub async fn simulate_liquidity_drain(&self, asset_code: &str, amount: Decimal) -> Result<(), ApiError> {
-        info!("Simulating liquidity drain for {}: {} units", asset_code, amount);
+    pub async fn simulate_liquidity_drain(
+        &self,
+        asset_code: &str,
+        amount: Decimal,
+    ) -> Result<(), ApiError> {
+        info!(
+            "Simulating liquidity drain for {}: {} units",
+            asset_code, amount
+        );
 
         // This would involve interacting with whatever tracks pool balances.
         // If it's a dedicated table or contract state.
         // Let's assume there's a 'pools' table.
-        
+
         let result = sqlx::query(
             r#"
             UPDATE pools
             SET total_liquidity = total_liquidity - $1,
                 last_drain_simulation_at = CURRENT_TIMESTAMP
             WHERE asset_code = $2
-            "#
+            "#,
         )
         .bind(amount)
         .bind(asset_code)
@@ -106,13 +115,19 @@ impl StressTestingEngine {
         match result {
             Ok(r) => {
                 if r.rows_affected() == 0 {
-                    warn!("No pool found for asset {} to drain liquidity from", asset_code);
+                    warn!(
+                        "No pool found for asset {} to drain liquidity from",
+                        asset_code
+                    );
                 } else {
                     info!("Successfully simulated liquidity drain for {}", asset_code);
                 }
             }
             Err(e) => {
-                warn!("Liquidity drain simulation failed (table might not exist yet): {}", e);
+                warn!(
+                    "Liquidity drain simulation failed (table might not exist yet): {}",
+                    e
+                );
                 // We might want to handle this gracefully if the schema is not yet fully updated
             }
         }
