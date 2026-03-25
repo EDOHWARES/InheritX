@@ -25,18 +25,44 @@ use crate::service::{
     UpdateEmergencyContactRequest,
 };
 use crate::yield_service::{DefaultOnChainYieldService, OnChainYieldService};
+use crate::stress_testing::StressTestingEngine;
 
 pub struct AppState {
     pub db: PgPool,
     pub config: Config,
     pub yield_service: Arc<dyn OnChainYieldService>,
+    pub stress_testing_engine: Arc<StressTestingEngine>,
 }
 
 pub async fn create_app(db: PgPool, config: Config) -> Result<Router, ApiError> {
+    let price_feed = Arc::new(crate::price_feed::DefaultPriceFeedService::new(
+        db.clone(),
+        3600,
+    ));
+    if let Err(e) = price_feed.initialize_defaults().await {
+        tracing::warn!("Failed to initialize default price feeds: {}", e);
+    }
+
+    let risk_engine = Arc::new(crate::risk_engine::RiskEngine::new(
+        db.clone(),
+        price_feed.clone(),
+        rust_decimal::Decimal::new(12, 1),
+    ));
+    risk_engine.clone().start();
+
+    let yield_service = Arc::new(DefaultOnChainYieldService::new());
+
+    let stress_testing_engine = Arc::new(StressTestingEngine::new(
+        db.clone(),
+        price_feed,
+        risk_engine,
+    ));
+
     let state = Arc::new(AppState {
         db,
         config,
-        yield_service: Arc::new(DefaultOnChainYieldService::new()),
+        yield_service,
+        stress_testing_engine,
     });
 
     // Rate limiting configuration
@@ -152,6 +178,19 @@ pub async fn create_app(db: PgPool, config: Config) -> Result<Router, ApiError> 
         .route(
             "/api/admin/emergency-access/plan/:plan_id",
             get(get_plan_emergency_access),
+        )
+        // ── Stress Testing Endpoints ──────────────────────────────────────────
+        .route(
+            "/api/admin/stress-test/price-crash",
+            post(simulate_price_crash),
+        )
+        .route(
+            "/api/admin/stress-test/mass-default",
+            post(simulate_mass_default),
+        )
+        .route(
+            "/api/admin/stress-test/liquidity-drain",
+            post(simulate_liquidity_drain),
         )
         .merge(analytics_router())
         .with_state(state);
@@ -688,4 +727,51 @@ async fn get_risk_override_plans(
     Ok(Json(
         json!({ "status": "success", "data": plans, "count": plans.len() }),
     ))
+}
+// =============================================================================
+// Stress Testing Endpoints
+// =============================================================================
+
+#[derive(serde::Deserialize)]
+pub struct PriceCrashRequest {
+    pub asset_code: String,
+    pub drop_percentage: rust_decimal::Decimal,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LiquidityDrainRequest {
+    pub asset_code: String,
+    pub amount: rust_decimal::Decimal,
+}
+
+async fn simulate_price_crash(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(_admin): AuthenticatedAdmin,
+    Json(req): Json<PriceCrashRequest>,
+) -> Result<Json<Value>, ApiError> {
+    state
+        .stress_testing_engine
+        .simulate_price_crash(&req.asset_code, req.drop_percentage)
+        .await?;
+    Ok(Json(json!({ "status": "success", "message": "Price crash simulation completed" })))
+}
+
+async fn simulate_mass_default(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(_admin): AuthenticatedAdmin,
+) -> Result<Json<Value>, ApiError> {
+    state.stress_testing_engine.simulate_mass_default().await?;
+    Ok(Json(json!({ "status": "success", "message": "Mass default simulation completed" })))
+}
+
+async fn simulate_liquidity_drain(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(_admin): AuthenticatedAdmin,
+    Json(req): Json<LiquidityDrainRequest>,
+) -> Result<Json<Value>, ApiError> {
+    state
+        .stress_testing_engine
+        .simulate_liquidity_drain(&req.asset_code, req.amount)
+        .await?;
+    Ok(Json(json!({ "status": "success", "message": "Liquidity drain simulation completed" })))
 }

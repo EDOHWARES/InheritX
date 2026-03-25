@@ -22,6 +22,7 @@ pub mod safe_math;
 pub mod service;
 pub mod telemetry;
 pub mod yield_service;
+pub mod stress_testing;
 
 pub use api_error::ApiError;
 pub use app::create_app;
@@ -35,3 +36,4 @@ pub use price_feed::{DefaultPriceFeedService, PriceFeedService, PriceFeedSource}
 pub use risk_engine::RiskEngine;
 pub use safe_math::SafeMath;
 pub use yield_service::{DefaultOnChainYieldService, OnChainYieldService};
+pub use stress_testing::StressTestingEngine;
