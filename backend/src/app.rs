@@ -26,6 +26,7 @@ use crate::service::{
 };
 use crate::stress_testing::StressTestingEngine;
 use crate::yield_service::{DefaultOnChainYieldService, OnChainYieldService};
+use crate::governance::{GovernanceService, CreateProposalRequest, VoteRequest, ParameterUpdateRequest, Proposal};
 
 pub struct AppState {
     pub db: PgPool,
@@ -191,6 +192,20 @@ pub async fn create_app(db: PgPool, config: Config) -> Result<Router, ApiError> 
         .route(
             "/api/admin/stress-test/liquidity-drain",
             post(simulate_liquidity_drain),
+        )
+        // ── Governance Endpoints ──────────────────────────────────────────────
+        .route(
+            "/api/admin/governance/proposals",
+            post(create_governance_proposal),
+        )
+        .route("/api/governance/proposals", get(list_governance_proposals))
+        .route(
+            "/api/governance/proposals/:id/vote",
+            post(vote_on_governance_proposal),
+        )
+        .route(
+            "/api/admin/governance/parameters/update",
+            post(update_protocol_parameter),
         )
         .merge(analytics_router())
         .with_state(state);
@@ -430,9 +445,7 @@ async fn reject_kyc(
     Ok(Json(status))
 }
 
-// =============================================================================
 // Loan Simulation Endpoints
-// =============================================================================
 
 /// Preview loan simulation without saving
 async fn simulate_loan(
@@ -482,9 +495,7 @@ async fn get_simulation(
     }
 }
 
-// =============================================================================
 // Reputation Endpoints
-// =============================================================================
 
 /// Get the current user's borrower reputation
 async fn get_user_reputation(
@@ -499,9 +510,7 @@ async fn get_user_reputation(
     })))
 }
 
-// =============================================================================
 // Loan Lifecycle Endpoints
-// =============================================================================
 
 /// Open a new loan in the `active` state.
 ///
@@ -606,9 +615,7 @@ async fn mark_overdue_loans(
     })))
 }
 
-// =============================================================================
 // Emergency Access Endpoints (Issue #293)
-// =============================================================================
 
 use crate::emergency_access::{
     EmergencyAccessService as LegacyEmergencyAccessService, GrantEmergencyAccessRequest,
@@ -680,7 +687,6 @@ async fn get_plan_emergency_access(
 }
 
 // Emergency Admin Endpoints
-// =============================================================================
 
 async fn pause_plan(
     State(state): State<Arc<AppState>>,
@@ -728,9 +734,7 @@ async fn get_risk_override_plans(
         json!({ "status": "success", "data": plans, "count": plans.len() }),
     ))
 }
-// =============================================================================
 // Stress Testing Endpoints
-// =============================================================================
 
 #[derive(serde::Deserialize)]
 pub struct PriceCrashRequest {
@@ -780,4 +784,39 @@ async fn simulate_liquidity_drain(
     Ok(Json(
         json!({ "status": "success", "message": "Liquidity drain simulation completed" }),
     ))
+// Governance Endpoints
+
+async fn create_governance_proposal(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(admin): AuthenticatedAdmin,
+    Json(req): Json<CreateProposalRequest>,
+) -> Result<Json<Proposal>, ApiError> {
+    let proposal = GovernanceService::create_proposal(&state.db, admin.admin_id, &req).await?;
+    Ok(Json(proposal))
+}
+
+async fn list_governance_proposals(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<Proposal>>, ApiError> {
+    let proposals = GovernanceService::list_proposals(&state.db).await?;
+    Ok(Json(proposals))
+}
+
+async fn vote_on_governance_proposal(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(proposal_id): Path<Uuid>,
+    Json(req): Json<VoteRequest>,
+) -> Result<Json<Value>, ApiError> {
+    GovernanceService::vote_on_proposal(&state.db, user.user_id, proposal_id, &req).await?;
+    Ok(Json(json!({ "status": "success", "message": "Vote recorded" })))
+}
+
+async fn update_protocol_parameter(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(admin): AuthenticatedAdmin,
+    Json(req): Json<ParameterUpdateRequest>,
+) -> Result<Json<Value>, ApiError> {
+    GovernanceService::update_parameter(&state.db, admin.admin_id, &req).await?;
+    Ok(Json(json!({ "status": "success", "message": "Parameter updated successfully" })))
 }

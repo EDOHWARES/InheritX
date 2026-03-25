@@ -23,6 +23,7 @@ pub mod service;
 pub mod stress_testing;
 pub mod telemetry;
 pub mod yield_service;
+pub mod governance;
 
 pub use api_error::ApiError;
 pub use app::create_app;
@@ -37,3 +38,4 @@ pub use risk_engine::RiskEngine;
 pub use safe_math::SafeMath;
 pub use stress_testing::StressTestingEngine;
 pub use yield_service::{DefaultOnChainYieldService, OnChainYieldService};
+pub use governance::GovernanceService;
