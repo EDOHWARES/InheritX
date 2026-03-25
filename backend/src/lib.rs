@@ -20,6 +20,7 @@ pub mod reputation;
 pub mod risk_engine;
 pub mod safe_math;
 pub mod service;
+pub mod stress_testing;
 pub mod telemetry;
 pub mod yield_service;
 
@@ -34,4 +35,5 @@ pub use loan_lifecycle::{LoanLifecycleService, LoanStatus};
 pub use price_feed::{DefaultPriceFeedService, PriceFeedService, PriceFeedSource};
 pub use risk_engine::RiskEngine;
 pub use safe_math::SafeMath;
+pub use stress_testing::StressTestingEngine;
 pub use yield_service::{DefaultOnChainYieldService, OnChainYieldService};
