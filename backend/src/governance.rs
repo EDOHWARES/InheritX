@@ -45,13 +45,13 @@ impl GovernanceService {
         req: &CreateProposalRequest,
     ) -> Result<Proposal, ApiError> {
         let expires_at = Utc::now() + chrono::Duration::days(req.duration_days);
-        
+
         let proposal = sqlx::query_as::<_, Proposal>(
             r#"
             INSERT INTO governance_proposals (title, description, proposer_id, status, expires_at)
             VALUES ($1, $2, $3, 'active', $4)
             RETURNING *
-            "#
+            "#,
         )
         .bind(&req.title)
         .bind(&req.description)
@@ -66,7 +66,7 @@ impl GovernanceService {
 
     pub async fn list_proposals(db: &PgPool) -> Result<Vec<Proposal>, ApiError> {
         let proposals = sqlx::query_as::<_, Proposal>(
-            "SELECT * FROM governance_proposals ORDER BY created_at DESC"
+            "SELECT * FROM governance_proposals ORDER BY created_at DESC",
         )
         .fetch_all(db)
         .await
@@ -81,11 +81,14 @@ impl GovernanceService {
         proposal_id: Uuid,
         req: &VoteRequest,
     ) -> Result<(), ApiError> {
-        let mut tx = db.begin().await.map_err(|e| ApiError::Internal(anyhow::anyhow!("Tx start error: {}", e)))?;
+        let mut tx = db
+            .begin()
+            .await
+            .map_err(|e| ApiError::Internal(anyhow::anyhow!("Tx start error: {}", e)))?;
 
         // Check if proposal is still active
         let proposal = sqlx::query_as::<_, Proposal>(
-            "SELECT * FROM governance_proposals WHERE id = $1 FOR UPDATE"
+            "SELECT * FROM governance_proposals WHERE id = $1 FOR UPDATE",
         )
         .bind(proposal_id)
         .fetch_optional(&mut *tx)
@@ -94,7 +97,9 @@ impl GovernanceService {
         .ok_or_else(|| ApiError::NotFound(format!("Proposal {} not found", proposal_id)))?;
 
         if proposal.status != "active" || proposal.expires_at < Utc::now() {
-            return Err(ApiError::BadRequest("Proposal is no longer active for voting".to_string()));
+            return Err(ApiError::BadRequest(
+                "Proposal is no longer active for voting".to_string(),
+            ));
         }
 
         // Record vote
@@ -109,7 +114,9 @@ impl GovernanceService {
         .map_err(|e| ApiError::Internal(anyhow::anyhow!("DB error recording vote: {}", e)))?;
 
         if vote_inserted.rows_affected() == 0 {
-            return Err(ApiError::BadRequest("You have already voted on this proposal".to_string()));
+            return Err(ApiError::BadRequest(
+                "You have already voted on this proposal".to_string(),
+            ));
         }
 
         // Update counts
@@ -123,9 +130,13 @@ impl GovernanceService {
             .bind(proposal_id)
             .execute(&mut *tx)
             .await
-            .map_err(|e| ApiError::Internal(anyhow::anyhow!("DB error updating vote counts: {}", e)))?;
+            .map_err(|e| {
+                ApiError::Internal(anyhow::anyhow!("DB error updating vote counts: {}", e))
+            })?;
 
-        tx.commit().await.map_err(|e| ApiError::Internal(anyhow::anyhow!("Tx commit error: {}", e)))?;
+        tx.commit()
+            .await
+            .map_err(|e| ApiError::Internal(anyhow::anyhow!("Tx commit error: {}", e)))?;
 
         Ok(())
     }
@@ -135,7 +146,10 @@ impl GovernanceService {
         _admin_id: Uuid,
         req: &ParameterUpdateRequest,
     ) -> Result<(), ApiError> {
-        info!("Updating protocol parameter: {} = {}", req.parameter_name, req.parameter_value);
+        info!(
+            "Updating protocol parameter: {} = {}",
+            req.parameter_name, req.parameter_value
+        );
 
         // In a real system, this would update a 'protocol_parameters' table
         let result = sqlx::query(
@@ -150,7 +164,7 @@ impl GovernanceService {
             Ok(_) => Ok(()),
             Err(e) => {
                 warn!("Parameter update failed (table might not exist yet): {}", e);
-                // Return success for simulation purposes if table doesn't exist, 
+                // Return success for simulation purposes if table doesn't exist,
                 // but in production we'd want a proper migration.
                 Ok(())
             }

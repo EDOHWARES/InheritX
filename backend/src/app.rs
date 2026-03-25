@@ -15,6 +15,9 @@ use crate::analytics::analytics_router;
 use crate::api_error::ApiError;
 use crate::auth::{AuthenticatedAdmin, AuthenticatedUser};
 use crate::config::Config;
+use crate::governance::{
+    CreateProposalRequest, GovernanceService, ParameterUpdateRequest, Proposal, VoteRequest,
+};
 use crate::loan_lifecycle::{CreateLoanRequest, LoanLifecycleService, LoanListFilters};
 use crate::service::{
     ClaimPlanRequest, CreateEmergencyAccessGrantRequest, CreateEmergencyContactRequest,
@@ -26,7 +29,6 @@ use crate::service::{
 };
 use crate::stress_testing::StressTestingEngine;
 use crate::yield_service::{DefaultOnChainYieldService, OnChainYieldService};
-use crate::governance::{GovernanceService, CreateProposalRequest, VoteRequest, ParameterUpdateRequest, Proposal};
 
 pub struct AppState {
     pub db: PgPool,
@@ -809,7 +811,9 @@ async fn vote_on_governance_proposal(
     Json(req): Json<VoteRequest>,
 ) -> Result<Json<Value>, ApiError> {
     GovernanceService::vote_on_proposal(&state.db, user.user_id, proposal_id, &req).await?;
-    Ok(Json(json!({ "status": "success", "message": "Vote recorded" })))
+    Ok(Json(
+        json!({ "status": "success", "message": "Vote recorded" }),
+    ))
 }
 
 async fn update_protocol_parameter(
@@ -818,5 +822,7 @@ async fn update_protocol_parameter(
     Json(req): Json<ParameterUpdateRequest>,
 ) -> Result<Json<Value>, ApiError> {
     GovernanceService::update_parameter(&state.db, admin.admin_id, &req).await?;
-    Ok(Json(json!({ "status": "success", "message": "Parameter updated successfully" })))
+    Ok(Json(
+        json!({ "status": "success", "message": "Parameter updated successfully" }),
+    ))
 }
